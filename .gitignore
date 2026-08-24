@@ -1,0 +1,50 @@
+# --- Env & portable tools (created by Transcribe_WAVs.bat / GUI first run) ---
+.venv/
+.tools/
+__pycache__/
+*.py[cod]
+*.pyd
+*$py.class
+
+# --- Build ---
+dist/
+build/
+*.spec.bak
+*.egg-info/
+.eggs/
+*.manifest
+
+# --- Caches / test artifacts ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- OS / editors (never commit) ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# --- Windows accident: `> nul` on Git Bash creates a file literally named `nul` ---
+nul
+
+# --- Media & transcripts (don't commit recordings or generated outputs) ---
+# Keep the repo code-only; test fixtures re-allowed below.
+*.wav
+*.mp3
+*.m4a
+*.flac
+*.ogg
+*.aac
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.vtt
+!tests/*.wav
