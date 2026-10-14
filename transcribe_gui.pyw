@@ -846,12 +846,6 @@ class App(ctk.CTk):
         def qlog(m): q.put(("log", str(m)))
         def qstatus(m): q.put(("status", str(m)))
         try:
-            qstatus("Checking ffmpeg...")
-            if not ensure_ffmpeg(SCRIPT_DIR, log_fn=qlog, status_fn=qstatus):
-                qlog("ERROR: ffmpeg setup failed. Put ffmpeg.exe into .tools manually or check internet.")
-                qlog(f"Get it from {FFMPEG_URL}")
-                q.put(("done", (0, 0, len(files))))
-                return
             if not getattr(sys, 'frozen', False) and not ENGINE_AVAILABLE:
                 qstatus("Installing dependencies...")
                 if not ensure_source_deps(SCRIPT_DIR, log_fn=qlog, status_fn=qstatus):
@@ -872,6 +866,25 @@ class App(ctk.CTk):
             tools_dir = os.path.join(SCRIPT_DIR, ".tools")
             if os.path.isdir(tools_dir) and tools_dir not in os.environ.get("PATH", ""):
                 os.environ["PATH"] = tools_dir + os.pathsep + os.environ.get("PATH", "")
+
+            # Partition before loading the model: skip names must track the
+            # engine's write names (incl. _sN suffix for non-default tracks),
+            # and a folder with nothing to do skips the model load entirely.
+            pending, skipped_pairs = transcribe_wav.filter_pending(files, stream_ordinal, force=False)
+            for spath, found in skipped_pairs:
+                q.put(("log", f"SKIPPED: {os.path.basename(spath)} — output exists ({os.path.basename(found)})"))
+            if skipped_pairs:
+                q.put(("progress", (len(skipped_pairs), "")))
+            if not pending:
+                q.put(("done", (0, len(skipped_pairs), 0)))
+                return
+
+            qstatus("Checking ffmpeg...")
+            if not ensure_ffmpeg(SCRIPT_DIR, log_fn=qlog, status_fn=qstatus):
+                qlog("ERROR: ffmpeg setup failed. Put ffmpeg.exe into .tools manually or check internet.")
+                qlog(f"Get it from {FFMPEG_URL}")
+                q.put(("done", (0, len(skipped_pairs), 0)))
+                return
 
             q.put(("status", f"Loading model ({model_name}, auto compute)..."))
             try:
@@ -894,30 +907,23 @@ class App(ctk.CTk):
                 q.put(("log", f"ERROR loading model: {e}"))
                 import traceback as _tb
                 q.put(("log", _tb.format_exc().strip()))
-                q.put(("done", (0, 0, len(files))))
+                q.put(("done", (0, len(skipped_pairs), 0)))
                 return
 
             success = 0
-            skipped = 0
             failed = 0
+            done_count = len(skipped_pairs)   # skips already advanced the bar above
 
-            for idx, wav_path in enumerate(files):
+            for wav_path in pending:
                 if self.cancel_event.is_set():
                     q.put(("log", "Cancelled by user."))
                     break
 
                 base = os.path.basename(wav_path)
-                txt_path = os.path.splitext(wav_path)[0] + ".txt"
-
-                if os.path.exists(txt_path):
-                    q.put(("log", f"SKIPPED: {base} — .txt already exists"))
-                    skipped += 1
-                    q.put(("progress", (idx + 1, base)))
-                    continue
 
                 q.put(("status", f"Transcribing {base}..."))
-                q.put(("progress_label", f"{idx + 1} / {len(files)} — {base}"))
-                q.put(("progress", (idx, base)))
+                q.put(("progress_label", f"{done_count + 1} / {len(files)} — {base}"))
+                q.put(("progress", (done_count, base)))
 
                 buf = io.StringIO()
                 try:
@@ -961,9 +967,10 @@ class App(ctk.CTk):
                     q.put(("log", _tb2.format_exc().strip()))
                     failed += 1
 
-                q.put(("progress", (idx + 1, base)))
+                done_count += 1
+                q.put(("progress", (done_count, base)))
 
-            q.put(("done", (success, skipped, failed)))
+            q.put(("done", (success, len(skipped_pairs), failed)))
 
         except Exception as e:
             import traceback as _tb

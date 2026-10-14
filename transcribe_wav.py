@@ -118,6 +118,45 @@ def resolve_track(input_path, stream_index):
         out_base = f"{base}_s{eff + 1}"
     return streams, eff, out_base
 
+def output_paths(input_path, stream_index):
+    """
+    Single source of truth for where transcribe_file will write this input's
+    outputs. Calls resolve_track() so the skip-check name always equals the
+    write name — including the _sN suffix for non-default tracks of
+    multi-stream containers (and out-of-range clamping).
+    Returns (txt_path, vtt_path).
+    """
+    _, _, out_base = resolve_track(input_path, stream_index)
+    return out_base + ".txt", out_base + ".vtt"
+
+def existing_output(input_path, stream_index):
+    """
+    Return the path of an already-existing transcript output for this input
+    (.txt OR .vtt counts as done), or None if the file still needs one.
+    Checks the resolved (possibly _sN-suffixed) name for the selected track,
+    so a different track's output never masks the selected track.
+    """
+    txt_path, vtt_path = output_paths(input_path, stream_index)
+    if os.path.exists(txt_path):
+        return txt_path
+    return vtt_path if os.path.exists(vtt_path) else None
+
+def filter_pending(files, stream_index, force=False):
+    """
+    Partition a media-file list into (pending, skipped) for batch processing.
+    pending  list of files that still need transcription
+    skipped  list of (file, existing_output_path) pairs whose transcript
+             output already exists on disk. force=True treats every file as pending.
+    """
+    pending, skipped = [], []
+    for f in files:
+        found = None if force else existing_output(f, stream_index)
+        if found is None:
+            pending.append(f)
+        else:
+            skipped.append((f, found))
+    return pending, skipped
+
 def get_duration(path):
     try:
         import av
@@ -379,7 +418,7 @@ def main():
     parser.add_argument("--terms", type=str, default=None, help="Hotwords comma-separated")
     parser.add_argument("--no-vad", action="store_true", help="Disable Silero VAD")
     parser.add_argument("--no-style-retry", action="store_true", help="Disable style-collapse retry")
-    parser.add_argument("--force", action="store_true", help="Overwrite existing .txt (batch skips by default)")
+    parser.add_argument("--force", action="store_true", help="Re-transcribe even if a .txt or .vtt output already exists (skips it by default)")
     parser.add_argument("--vtt", action="store_true", help="Also write .vtt subtitles beside each .txt")
     args = parser.parse_args()
     path = args.path
@@ -394,8 +433,6 @@ def main():
         prompt = f"{DEFAULT_PROMPT} {args.prompt}"
     else:
         prompt = DEFAULT_PROMPT
-    print("Loading faster-whisper model...")
-    model, compute_used = load_model(args.model, args.compute)
     files = []
     if os.path.isdir(path):
         for f in sorted(os.listdir(path)):
@@ -406,18 +443,25 @@ def main():
     if not files:
         print("No media files found.")
         return
-    print(f"Found {len(files)} file(s) to transcribe.")
+    # Partition before loading the model so a folder with nothing to do
+    # exits fast (no model load) and skip names track the write names.
+    pending, skipped = filter_pending(files, args.stream, force=args.force)
+    for p, found in skipped:
+        print(f"SKIPPED (exists): {os.path.basename(p)} - {os.path.basename(found)}")
+    if not pending:
+        print(f"All {len(files)} file(s) already have outputs - nothing to transcribe (use --force to redo).")
+        return
+    print(f"Found {len(pending)} file(s) to transcribe.")
+    print("Loading faster-whisper model...")
+    model, compute_used = load_model(args.model, args.compute)
     success = 0
-    for p in files:
-        _, _, out_base = resolve_track(p, args.stream)
-        txt = out_base + ".txt"
-        if os.path.exists(txt) and not args.force:
-            print(f"SKIPPED (exists): {os.path.basename(p)}")
-            success += 1
-            continue
+    failed = 0
+    for p in pending:
         if transcribe_file(p, model, compute_used, prompt=prompt, user_prompt=args.prompt, terms=args.terms, use_vad=not args.no_vad, style_retry=not args.no_style_retry, write_vtt_flag=args.vtt):
             success += 1
-    print(f"\nFinished: {success}/{len(files)} files transcribed.")
+        else:
+            failed += 1
+    print(f"\nFinished: {success} transcribed, {len(skipped)} skipped, {failed} failed out of {len(files)}.")
 
 if __name__ == "__main__":
     main()
