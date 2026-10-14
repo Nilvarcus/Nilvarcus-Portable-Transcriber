@@ -31,10 +31,12 @@
 ```
 Browse → _on_folder_change → _inspect_tracks (probe first video, fill OptionMenu)
 Transcribe → _run_job (background Thread, daemon):
-  ensure_ffmpeg (which/.tools/dl) → ensure_source_deps (source only) → load_model (cached, redirect_stdout → log)
-  for each media file top-level:
-    if .txt exists → log SKIPPED, progress++
-    else status "Transcribing X" → extract (wav passthrough else temp wav via ffmpeg) → whisper → filters → write .txt (+ .vtt) → DONE/FAILED → progress++
+  ensure_source_deps (source only) → filter_pending (partition: skip names via
+    resolve_track, so they match the write names incl. `_sN` suffix)
+  → nothing pending: done without ffmpeg/model work
+  → ensure_ffmpeg (which/.tools/dl) → load_model (cached, redirect_stdout → log)
+  for each pending file top-level:
+    status "Transcribing X" → extract (wav passthrough else temp wav via ffmpeg) → whisper → filters → write .txt (+ .vtt) → DONE/FAILED → progress++
   done → status "Finished: X transcribed, Y skipped, Z failed"
                 ↕ msg_queue
 UI thread _poll_queue → _set_progress / _log / _set_status (dot color + footer mirror)
@@ -43,7 +45,7 @@ UI thread _poll_queue → _set_progress / _log / _set_status (dot color + footer
 ## Key decisions & invariants
 
 - **No engine change** in this reskin — `transcribe_wav.py` untouched; GUI only consumes it.
-- **Top-level only** scan (`os.listdir`, no `rglob`); skips if `txt` exists; per-file error never aborts whole run (worker `try/except` per file).
+- **Top-level only** scan (`os.listdir`, no `rglob`); skips a file if its `.txt` **or** `.vtt` output (resolved, `_sN`-aware name for the selected track) already exists — shared `filter_pending` in the engine, no GUI-side duplicate name math; per-file error never aborts whole run (worker `try/except` per file).
 - **Header dot** derived from status text (`Working`=`AMBER`, `Done`=`GREEN`, `Error`=`RED`, `Ready`=`GREEN`, `Idle`=`GREY`).
 - **Windowed exe** guard: `sys.stdout=None` → `io.StringIO` dummy; engine prints captured via `redirect_stdout` so VAD/model logs surface in GUI even with `console=False`.
 - **`SCRIPT_DIR`** = `sys.executable` dir when `frozen`, else `.pyw` dir; `.tools` added to `PATH` early so `ffmpeg` is found before bootstrap.

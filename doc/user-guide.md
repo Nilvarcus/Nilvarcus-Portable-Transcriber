@@ -29,6 +29,7 @@
 ## Model & output notes
 
 - **VTT:** `Also write .vtt` or CLI `--vtt` → `WEBVTT` with `HH:MM:SS.mmm -->`.
+- **Skip behavior:** a file is skipped when its `.txt` **or** `.vtt` output already exists beside it (plain or `_sN`-suffixed name for the *selected* track — so picking a different stream can still produce additional `_sN` outputs). Fully-transcribed folders finish without loading the model. To redo a file, delete its output(s), or use CLI `--force`.
 - **Other models:** GUI offers two; engine accepts any `faster-whisper` name via CLI `--model large-v3-turbo / distil-large-v3 / small.en …`.
 - **Prompt/terms:** edit `DEFAULT_PROMPT` or CLI `--prompt "Sentence." --terms "BossName, Item"` for jargon.
 - **Cache:** models live in `%USERPROFILE%\.cache\huggingface` (global, not per folder). Delete that folder to force re-download.

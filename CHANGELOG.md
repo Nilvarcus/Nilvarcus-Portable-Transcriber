@@ -28,3 +28,15 @@ Initial public release of **Portable WAV/Media Transcriber** — one-click local
 - `.gitignore` — expanded to cover `.venv/`, `.tools/`, `dist/`, `build/`, caches (`.pytest_cache/` etc.), OS/editor files, `nul` accident file, and media/transcript outputs (`*.wav`/`*.mp4`/`*.vtt` with `!tests/*.wav` re-allow).
 
 [1.0.0]: https://github.com/Nilvarcus/Nilvarcus-Portable-Transcriber/releases/tag/v1.0.0
+
+## [1.0.1] - 2026-10-14
+
+### Fixed
+- **No more re-transcribing finished files** — the GUI worker checked only the plain `video.txt` name while the engine writes `video_s4.txt` (+ `video_s4.vtt`) for non-default tracks of multi-stream containers (Track 4 is the GUI default), so those videos re-transcribed on every run. Skip logic now lives in one shared, track-aware resolver (`output_paths` / `existing_output` / `filter_pending` in `transcribe_wav.py`) used by both the GUI and the CLI — the skip name always equals the write name.
+- **`.vtt` counts as done** — a file is skipped if its `.txt` **or** `.vtt` output already exists (previously `.vtt` was never considered). CLI `--force` still bypasses both.
+- **Skip before model load** — partitioning happens before ffmpeg/model setup: a folder where every file already has outputs finishes instantly ("All N file(s) already have outputs") without loading the 3GB model (GUI and CLI).
+- **Reverted** an uncommitted change that had removed the documented `_sN` output suffix (contradicted the docs and left existing `_sN` outputs invisible to skip checks).
+- Track switching still works: skipping checks only the *selected* track's names, so a `video_s4.txt` (Track 4) doesn't block re-running for Track 2 into `video_s2.txt`.
+
+### Packaging
+- Release asset: `release/1.0.1/Transcribe_GUI-1.0.1.zip` — contains `Transcribe_GUI.exe` (93.74 MB unpacked, SHA256 `5F660F8EFCE5F3CAB992A94FE1AA0DC850E20A67A9C6D019410C30A927550D32`). Repo-local only (`release/` is gitignored); publish via GitHub Releases.

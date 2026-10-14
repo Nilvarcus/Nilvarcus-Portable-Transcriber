@@ -10,7 +10,7 @@
 2. **Browse** to the folder with your media → pick **Model** (`Large-v3` best, ~3GB / `Turbo` fast, ~1.6GB) and **Audio track** for videos (defaults to `Stream 3 / Track 4` for DaVinci VO).
 3. Click **Transcribe** → progress `3 / 13 — file.wav` + log shows `SKIPPED`/`DONE` per file. **Open folder** reveals the `.txt` files. Delete a `.txt` to re-transcribe it next run.
 
-> First run: double-click `Transcribe_WAVs.bat` once — it installs portable `ffmpeg` to `.tools/`, deps to `.venv`, and the model to `%USERPROFILE%\.cache\huggingface` (needs internet + ~5GB free). Next runs are offline and skip existing `.txt` files.
+> First run: double-click `Transcribe_WAVs.bat` once — it installs portable `ffmpeg` to `.tools/`, deps to `.venv`, and the model to `%USERPROFILE%\.cache\huggingface` (needs internet + ~5GB free). Next runs are offline and skip files whose `.txt` or `.vtt` output already exists.
 
 ## Batch alternative (no GUI)
 

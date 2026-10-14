@@ -17,7 +17,7 @@
 | Wrong transcript on video | Track mismatch — game audio vs VO. Try other `Stream N` in GUI dropdown or CLI `python transcribe_wav.py folder --stream N` / `--stream -1` (Auto). Engine clamps OOR with `NOTE:` and uses `_sN` suffix. |
 | `Out of memory / CUDA / cublas` | Auto fallback `cuda float16 → cuda int8_float16 → cpu int8`. Close VRAM hogs or pick `Turbo`. |
 | Progress stuck / `Cancel` | `Cancel` finishes **current file** then stops by design; reopen GUI if header stays `Working`. |
-| Want overwrite | Delete the `.txt` (and `.vtt`) or CLI `python transcribe_wav.py "file.wav" --force --vtt`. `SKIPPED` means `.txt` already exists. |
+| Want overwrite | Delete the output(s) — `.txt` and/or `.vtt`, e.g. `video_s4.txt` — or CLI `python transcribe_wav.py "file.wav" --force --vtt`. `SKIPPED` means the `.txt` **or** `.vtt` output for the selected track already exists. |
 | SmartScreen `protected your PC` | `More info → Run anyway`; unblock `.bat` via `Properties → Unblock`. |
 | `GUI says Setup not complete` after bat | Wait for bat `Finished:` line; relaunch exe. If still stuck, `py --version` ≥ 3.10? |
 | Rebuild exe fails | `.venv\Scripts\pyinstaller --noconfirm Transcribe_GUI.spec` (or `build_exe.bat` — auto-installs `customtkinter`+`pyinstaller` if missing) → `dist/Transcribe_GUI.exe ~94MB`, `--noconsole`. |
